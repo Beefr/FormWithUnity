@@ -18,9 +18,11 @@ namespace FormWithUnity
 {
     class NCServer
     {
+        // for testing purpose
         private int position = -1;
+
+        // for the communication 
         private bool serverEnabled = false;
-        //private String IPServer="127.0.0.1";
         private int PortServer= 10000;
         private ConnectionInfo serverConnectionInfo = null;
         private Communication message;
@@ -36,10 +38,9 @@ namespace FormWithUnity
 
         public NCServer()
         {
-
+            // warm things up to have a sweet communication =)
             customSendReceiveOptions = new SendReceiveOptions<ProtobufSerializer>();
             serverConnectionInfo = new ConnectionInfo(new IPEndPoint(IPAddress.Any, PortServer));
-            //connection = TCPConnection.GetConnection(serverConnectionInfo);
 
             //Start listening for incoming TCP connections
             if (!serverEnabled)
@@ -49,16 +50,14 @@ namespace FormWithUnity
             //Configure NetworkComms .Net to handle and incoming packet of type 'ChatMessage'
             //e.g. If we receive a packet of type 'ChatMessage' execute the method 'HandleIncomingChatMessage'
             NetworkComms.AppendGlobalIncomingPacketHandler<Communication>("Communication", HandleIncomingChatMessage, customSendReceiveOptions);
+
+            // if a client disconnects
             NetworkComms.AppendGlobalConnectionCloseHandler(ClientDisconnected);
-
+            
+            // if a client connects
             NetworkComms.AppendGlobalConnectionEstablishHandler(ClientConnected);
-
-
-            /*NetworkComms.AppendGlobalIncomingPacketHandler<CommunicateObject>("Caracteristics", (header, connection, message) =>
-            {
-                Console.WriteLine("Object name: " + message.Message.name);
-            });//*/
-
+            
+            // if an update is received
             NetworkComms.AppendGlobalIncomingPacketHandler<CommunicateUpdate>("Update", (header, connection, message) =>
             {
                 string content = message.Message;
@@ -68,6 +67,7 @@ namespace FormWithUnity
                 //RichTextBox1.Text = content; // can't update from this thread
             });
 
+            // on first connection
             NetworkComms.AppendGlobalIncomingPacketHandler<Communication>("InitialClientConnect", (header, connection, message) =>
             {
                 if (!connected)
@@ -84,10 +84,11 @@ namespace FormWithUnity
                 }
             });
 
+            // if we press that key, the server can receive it
             NetworkComms.AppendGlobalIncomingPacketHandler<int>("SecondaryIndexTrigger", (header, connection, message) =>
             {
                 Console.WriteLine("SecondaryIndexTrigger");
-                SendMyObject();
+                SendMyObject(); // here we ask for the creation of an object 
             });
 
 
@@ -95,7 +96,10 @@ namespace FormWithUnity
 
         }
 
-
+        /// <summary>
+        /// client connected
+        /// </summary>
+        /// <param name="connection"></param>
         public void ClientConnected(Connection connection)
         {
             Console.WriteLine(" ");
@@ -103,7 +107,10 @@ namespace FormWithUnity
             
         }
 
-
+        /// <summary>
+        /// client disconnected
+        /// </summary>
+        /// <param name="connection"></param>
         public void ClientDisconnected(Connection connection)
         {
             Console.WriteLine(" ");
@@ -126,13 +133,13 @@ namespace FormWithUnity
             {
                 position = incomingMessage.Message;
                 Console.WriteLine("Message received from: " + connection.ConnectionInfo.LocalEndPoint + ", position updated: " + incomingMessage.Message + " " + incomingMessage.SecretKey);
-                //Console.WriteLine("Message received from: " + incomingMessage.SourceIdentifier + ", position updated: " + incomingMessage.Message + " " + incomingMessage.SecretKey);
-
-               
+                // for example purpose 
             }
         }
 
-
+        /// <summary>
+        /// we can send messages
+        /// </summary>
         public void SendMessage() {
             
             message = new Communication(NetworkComms.NetworkIdentifier, position,1234);
@@ -146,10 +153,7 @@ namespace FormWithUnity
                 Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
                 try
                 {
-                    //NetworkComms.SendObject("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, message);
                     TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Communication", message);
-                    //Communication customObject2 = NetworkComms.SendReceiveObject<Communication, Communication>("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, "Communication", 1000, message);
-                    //position = customObject2.Message;
 
                 }
                 catch (CommunicationException) { Console.WriteLine("CommunicationException"); }
@@ -163,6 +167,9 @@ namespace FormWithUnity
 
         }
         
+        /// <summary>
+        /// you can also send objects, here we create a cylinder, i mean we send a cylinder by tcp and then the client creates it after deserializing and stuff
+        /// </summary>
         public void SendMyObject()
         {
             
@@ -197,7 +204,13 @@ namespace FormWithUnity
             Console.WriteLine();
         }
 
-
+        /// <summary>
+        /// get the string between the two given strings
+        /// </summary>
+        /// <param name="strSource">source you are interested in extract something</param>
+        /// <param name="strStart">first string</param>
+        /// <param name="strEnd">second string</param>
+        /// <returns></returns>
         public static string GetBetween(string strSource, string strStart, string strEnd)
         {
             int Start, End;
@@ -213,6 +226,10 @@ namespace FormWithUnity
             }
         } // credit https://stackoverflow.com/questions/10709821/find-text-in-string-with-c-sharp
 
+        /// <summary>
+        /// if we update an item in the interface, it tells the client and it updates
+        /// </summary>
+        /// <param name="text"></param>
         public void SendObjectUpdate(string text)
         {
             
@@ -223,7 +240,6 @@ namespace FormWithUnity
 
                 // get the ID
                 string stringID = GetBetween(content, "<ID", "ID>");
-                //Console.WriteLine(stringID);
                 if (!Int32.TryParse(stringID, out int ID))
                 {
                     ID = -1;
@@ -291,28 +307,37 @@ namespace FormWithUnity
         }
 
       
-
+        /// <summary>
+        /// closes the communication
+        /// </summary>
         public void ShutDown() {
             //We have used NetworkComms so we should ensure that we correctly call shutdown
             NetworkComms.Shutdown();
         }
 
+
+        /// <summary>
+        /// for testing purpose
+        /// </summary>
+        /// <returns></returns>
         public int GetPosition() { return position; }
 
 
+        // what goes next is more for example purpose, the client doesn't care about that type of message
+        /// <summary>
+        /// makes u go right
+        /// </summary>
+        /// <param name="val"></param>
         public void Right(int val)
         {
             foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
             {
-                //Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
                 try
                 {
                     for (int i = 0; i < val; i++)
                     {
-                        //NetworkComms.SendObject("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, message);
                         TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Deplacement", "right");
-                        //Communication customObject2 = NetworkComms.SendReceiveObject<Communication, Communication>("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, "Communication", 1000, message);
-                        //position = customObject2.Message;
+                       
                     }
                 }
                 catch (CommunicationException) { Console.WriteLine("CommunicationException"); }
@@ -320,22 +345,20 @@ namespace FormWithUnity
                 catch (Exception) { Console.WriteLine("Autre exception"); }
             }
         }
-
-
-
+        
+        /// <summary>
+        /// makes u go bot
+        /// </summary>
+        /// <param name="val"></param>
         public void Bot(int val)
         {
             foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
             {
-                //Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
                 try
                 {
                     for (int i = 0; i < val; i++)
                     {
-                        //NetworkComms.SendObject("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, message);
                         TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Deplacement", "bot");
-                        //Communication customObject2 = NetworkComms.SendReceiveObject<Communication, Communication>("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, "Communication", 1000, message);
-                        //position = customObject2.Message;
                     }
                 }
                 catch (CommunicationException) { Console.WriteLine("CommunicationException"); }
@@ -344,19 +367,19 @@ namespace FormWithUnity
             }
         }
 
+        /// <summary>
+        /// makes u go left
+        /// </summary>
+        /// <param name="val"></param>
         public void Left(int val)
         {
             foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
             {
-                // Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
                 try
                 {
                     for (int i = 0; i < val; i++)
                     {
-                        //NetworkComms.SendObject("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, message);
                         TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Deplacement", "left");
-                        //Communication customObject2 = NetworkComms.SendReceiveObject<Communication, Communication>("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, "Communication", 1000, message);
-                        //position = customObject2.Message;
                     }
                 }
                 catch (CommunicationException) { Console.WriteLine("CommunicationException"); }
@@ -365,19 +388,19 @@ namespace FormWithUnity
             }
         }
 
+        /// <summary>
+        /// makes u go top
+        /// </summary>
+        /// <param name="val"></param>
         public void Top(int val)
         {
             foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
             {
-                //Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
                 try
                 {
                     for (int i = 0; i < val; i++)
                     {
-                        //NetworkComms.SendObject("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, message);
                         TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Deplacement", "top");
-                        //Communication customObject2 = NetworkComms.SendReceiveObject<Communication, Communication>("Communication", localEndPoint.Address.ToString(), localEndPoint.Port, "Communication", 1000, message);
-                        //position = customObject2.Message;
                     }
                 }
                 catch (CommunicationException) { Console.WriteLine("CommunicationException"); }

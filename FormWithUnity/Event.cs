@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace FormWithUnity
 {
+    /// <summary>
+    /// The delegate procedure we are assigning to our object
+    /// </summary>
     public class Event: EventArgs
     {
         private string message;
@@ -23,7 +26,7 @@ namespace FormWithUnity
             {
                 return message;
             }
-        }//*/
+        }
 
     }
 

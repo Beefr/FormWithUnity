@@ -68,40 +68,6 @@ namespace FormWithUnity
             this.SecretKey = secretKey;
         }
 
-        
-        /// <summary>
-        /// Before serialising this object convert the image into binary data
-        /// </summary>
-        /*[ProtoBeforeSerialization]
-        private void Serialize()
-        {
-            //We need to decide how to convert our image to its raw binary form here
-           // using (MemoryStream inputStream = new MemoryStream())
-           // {
-
-
-                //Store the binary image data as bytes[]
-            //    _sourceIdentifier = inputStream.ToString();
-           // }
-        }
-
-        /// <summary>
-        /// When deserialising the object convert the binary data back into an image object
-        /// </summary>
-        [ProtoAfterDeserialization]
-        private void Deserialize()
-        {
-            
-        }
-
-        public void Serialize(Stream outputStream)
-        {
-            
-        }
-
-        public void Deserialize(Stream inputStream)
-        {
-            
-        }*/
+       
     }
 }
