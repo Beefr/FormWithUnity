@@ -1,13 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Google.Protobuf;
-using ProtoBuf;
+﻿using ProtoBuf;
 using NetworkCommsDotNet.Tools;
-using NetworkCommsDotNet.DPSBase;
-using System.IO;
 
 namespace FormWithUnity
 {
@@ -40,15 +32,7 @@ namespace FormWithUnity
         /// </summary>
         [ProtoMember(2)]
         public int Message { get; private set; }
-
-        /// <summary>
-        /// the secret key to verify whether it is a real message or not
-        /// </summary>
-        [ProtoMember(3)]
-        public int SecretKey { get; private set; }
-
-       
-
+        
         /// <summary>
         /// We must include a private constructor to be used by the deserialisation step.
         /// </summary>
@@ -61,11 +45,10 @@ namespace FormWithUnity
         /// <param name="sourceName">The source name</param>
         /// <param name="message">The message to be sent</param>
         /// <param name="messageIndex">The index of this message</param>
-        public Communication(ShortGuid sourceIdentifier, int message, int secretKey)
+        public Communication(ShortGuid sourceIdentifier, int message)
         {
             this._sourceIdentifier = sourceIdentifier;
             this.Message = message;
-            this.SecretKey = secretKey;
         }
 
        

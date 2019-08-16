@@ -5,14 +5,11 @@ using System.Net;
 using NetworkCommsDotNet.DPSBase;
 using NetworkCommsDotNet.Connections.TCP;
 using System.Collections.Generic;
-using Elements;
-using System.IO;
-using System.Runtime.Serialization.Json;
-using System.Text;
 using UnitsNet;
 using UnitsNet.Serialization.JsonNet;
 using Newtonsoft.Json;
-using System.Windows.Forms;
+using Elements;
+using UnitsNet.Units;
 
 namespace FormWithUnity
 {
@@ -20,36 +17,36 @@ namespace FormWithUnity
     {
         // for testing purpose
         private int position = -1;
+        int index = 0;
 
         // for the communication 
         private bool serverEnabled = false;
         private int PortServer= 10000;
-        private ConnectionInfo serverConnectionInfo = null;
-        private Communication message;
-        private CommunicateElement messageObject;
         private SendReceiveOptions customSendReceiveOptions;
         private List<IPEndPoint> connectedClients = new List<IPEndPoint>();
-        private bool connected = false;
         
 
         // The delegate procedure we are assigning to our object
         public delegate void EventHandler(object myObject, Event myArgs);
-        public event EventHandler OnClickMade;
+        public event EventHandler OnGetSelected;
 
+        /// <summary>
+        /// constructor of the server
+        /// </summary>
         public NCServer()
         {
-            // warm things up to have a sweet communication =)
+            // setup the communication 
             customSendReceiveOptions = new SendReceiveOptions<ProtobufSerializer>();
-            serverConnectionInfo = new ConnectionInfo(new IPEndPoint(IPAddress.Any, PortServer));
+            ConnectionInfo serverConnectionInfo = new ConnectionInfo(new IPEndPoint(IPAddress.Any, PortServer));
 
             //Start listening for incoming TCP connections
             if (!serverEnabled)
                 EnableServer_Toggle();
-           
 
-            //Configure NetworkComms .Net to handle and incoming packet of type 'ChatMessage'
-            //e.g. If we receive a packet of type 'ChatMessage' execute the method 'HandleIncomingChatMessage'
-            NetworkComms.AppendGlobalIncomingPacketHandler<Communication>("Communication", HandleIncomingChatMessage, customSendReceiveOptions);
+
+            //Configure NetworkComms .Net to handle and incoming packet of type 'Communication'
+            //e.g. If we receive a packet of type 'Communication' execute the method 'HandleIncomingCommunication'
+            NetworkComms.AppendGlobalIncomingPacketHandler<Communication>("Communication", HandleIncomingCommunication, customSendReceiveOptions);
 
             // if a client disconnects
             NetworkComms.AppendGlobalConnectionCloseHandler(ClientDisconnected);
@@ -61,27 +58,9 @@ namespace FormWithUnity
             NetworkComms.AppendGlobalIncomingPacketHandler<CommunicateUpdate>("Update", (header, connection, message) =>
             {
                 string content = message.Message;
-                // deserialize the content or w/e
 
-                OnClickMade(this, new Event(content));
-                //RichTextBox1.Text = content; // can't update from this thread
-            });
-
-            // on first connection
-            NetworkComms.AppendGlobalIncomingPacketHandler<Communication>("InitialClientConnect", (header, connection, message) =>
-            {
-                if (!connected)
-                {
-                    lock (connectedClients) { 
-                        //If a client sends a InitialClientConnect packet we add them to the connectedClients list
-                        connectedClients.Add((IPEndPoint)connection.ConnectionInfo.RemoteEndPoint);
-                        position = message.Message;
-
-                        ICollection<IPEndPoint> withoutDuplicates = new HashSet<IPEndPoint>(connectedClients);
-                        connectedClients = new List<IPEndPoint>(withoutDuplicates);
-                        connected = true;
-                    }
-                }
+                OnGetSelected(this, new Event(content)); // calls myNCServer.OnGetSelected += new NCServer.EventHandler(UpdateRichTextBox); in Form1
+                //RichTextBox1.Text = content; // you can't update from this thread
             });
 
             // if we press that key, the server can receive it
@@ -95,44 +74,61 @@ namespace FormWithUnity
 
 
         }
+        
 
         /// <summary>
         /// client connected
         /// </summary>
         /// <param name="connection"></param>
-        public void ClientConnected(Connection connection)
+        private void ClientConnected(Connection connection)
         {
             Console.WriteLine(" ");
             Console.WriteLine("Connection established: " + connection.ConnectionInfo.LocalEndPoint);
             
-        }
+            lock (connectedClients)
+            {
+                //If a client sends a InitialClientConnect packet we add them to the connectedClients list
+                connectedClients.Add((IPEndPoint)connection.ConnectionInfo.RemoteEndPoint);
 
+                ICollection<IPEndPoint> withoutDuplicates = new HashSet<IPEndPoint>(connectedClients);
+                connectedClients = new List<IPEndPoint>(withoutDuplicates);
+            }
+
+            
+
+        }
+        
         /// <summary>
-        /// client disconnected
-        /// </summary>
-        /// <param name="connection"></param>
-        public void ClientDisconnected(Connection connection)
+         /// client disconnected
+         /// </summary>
+         /// <param name="connection"></param>
+        private void ClientDisconnected(Connection connection)
         {
             Console.WriteLine(" ");
             Console.WriteLine("Connection is over: " + connection.ConnectionInfo.LocalEndPoint);
-
+            
+            lock (connectedClients)
+            {
+                connectedClients.Remove((IPEndPoint)connection.ConnectionInfo.RemoteEndPoint);
+            }
         }
 
 
 
 
+
         /// <summary>
-        /// Performs whatever functions we might so desire when we receive an incoming ChatMessage
+        /// Performs whatever functions we might so desire when we receive an incoming Communication
         /// </summary>
         /// <param name="header">The PacketHeader corresponding with the received object</param>
         /// <param name="connection">The Connection from which this object was received</param>
-        /// <param name="incomingMessage">The incoming ChatMessage we are after</param>
-        private void HandleIncomingChatMessage(PacketHeader header, Connection connection, Communication incomingMessage)
+        /// <param name="incomingMessage">The incoming Communication we are after</param>
+        private void HandleIncomingCommunication(PacketHeader header, Connection connection, Communication incomingMessage)
         {
-            if (incomingMessage.SecretKey == 1234 && NetworkComms.NetworkIdentifier!=connection.ConnectionInfo.NetworkIdentifier)
+            if (NetworkComms.NetworkIdentifier!=connection.ConnectionInfo.NetworkIdentifier)
             {
                 position = incomingMessage.Message;
-                Console.WriteLine("Message received from: " + connection.ConnectionInfo.LocalEndPoint + ", position updated: " + incomingMessage.Message + " " + incomingMessage.SecretKey);
+                Console.WriteLine("Message received from: " + connection.ConnectionInfo.LocalEndPoint + ", position updated: " + incomingMessage.Message );
                 // for example purpose 
             }
         }
@@ -141,16 +137,16 @@ namespace FormWithUnity
         /// we can send messages
         /// </summary>
         public void SendMessage() {
-            
-            message = new Communication(NetworkComms.NetworkIdentifier, position,1234);
+
+            Communication message = new Communication(NetworkComms.NetworkIdentifier, position);
 
             //Print out the IPs and ports we are now listening on
             Console.WriteLine();
             Console.WriteLine("[Communication] Server messaging these TCP connections:");
 
-            foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
+            foreach (IPEndPoint localEndPoint in connectedClients)
             {
-                Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
+                Console.WriteLine($"{localEndPoint.Address}:{localEndPoint.Port}");
                 try
                 {
                     TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Communication", message);
@@ -166,30 +162,37 @@ namespace FormWithUnity
             
 
         }
-        
+
         /// <summary>
-        /// you can also send objects, here we create a cylinder, i mean we send a cylinder by tcp and then the client creates it after deserializing and stuff
+        /// you can also send objects, here we create a xxx, i mean we send a xxx by tcp and then the client creates it after deserializing and other stuff
         /// </summary>
         public void SendMyObject()
         {
-            
-            //Length c = new Length(1, UnitsNet.Units.LengthUnit.Meter);
-            Cylinder c = new Cylinder(1, "Cylinder", "Element", 1, 1, new Length(1, UnitsNet.Units.LengthUnit.Meter), new Length(1, UnitsNet.Units.LengthUnit.Meter), new Length(1, UnitsNet.Units.LengthUnit.Meter));
-            //Sphere c = new Sphere(1, "Sphere", "Element", 1, 1, true, new Length(1, UnitsNet.Units.LengthUnit.Meter), new Length(1, UnitsNet.Units.LengthUnit.Meter));
+            ElbowCylindrical elbowCylindrical = new ElbowCylindrical(1, "ElbowCylindrical", "Element", 1, 1, new Length(0.01, LengthUnit.Meter), new Length(0.1, LengthUnit.Meter), new Angle(90, AngleUnit.Degree), new Length(0, LengthUnit.Meter), false, new Length(0, LengthUnit.Meter), new Length(0.4, LengthUnit.Meter), new Length(0, LengthUnit.Meter), new Angle(0, AngleUnit.Degree), new Angle(0, AngleUnit.Degree));
+            Caps caps = new Caps(1, "Caps", "Element", 1, 1, "Caps", new Length(0.2, LengthUnit.Meter), new Length(0.5, LengthUnit.Meter), new Length(0.4999, LengthUnit.Meter), new Length(0.5, LengthUnit.Meter), new Length(1, LengthUnit.Meter), new Length(0, LengthUnit.Meter), new Pressure(0, PressureUnit.Bar), "Caps", false);
+            PipeRectangular pipeRectangular = new PipeRectangular(1, "PipeRectangular", "Element", 1, 1, "PipeRectangular", "Shape", new Length(0.1, LengthUnit.Meter), new Length(1, LengthUnit.Meter), new Length(0.5, LengthUnit.Meter), new Length(0.5, LengthUnit.Meter));
+            Cone cone = new Cone(1, "Tube", "Element", 1, 1, new Length(0.1, LengthUnit.Meter), new Length(2, LengthUnit.Meter), new Length(1, LengthUnit.Meter), new Length(2, LengthUnit.Meter), new Angle(0, AngleUnit.Degree), new Length(0,LengthUnit.Meter), new Length(0, LengthUnit.Meter), new Length(0, LengthUnit.Meter), new Length(0, LengthUnit.Meter));
+            Tube tube = new Tube(1, "Tube", "Element", 1, 1, "tube", new Length(1, LengthUnit.Meter), new Length(0.1, LengthUnit.Meter), new Length(2, LengthUnit.Meter));
+            List<BaseElement> objectsList = new List<BaseElement> { elbowCylindrical, caps, pipeRectangular, cone, tube};
+            index = index >= objectsList.Count - 1 ? index = 0 : index + 1;
+            BaseElement c = objectsList[index];
 
-            JsonSerializerSettings _jsonSerializerSettings = new JsonSerializerSettings { Formatting = Formatting.Indented };
+            JsonSerializerSettings _jsonSerializerSettings = new JsonSerializerSettings {
+                TypeNameHandling = TypeNameHandling.Auto,
+                Formatting = Formatting.Indented
+            };
             _jsonSerializerSettings.Converters.Add(new UnitsNetJsonConverter());
-            string json = JsonConvert.SerializeObject(c, _jsonSerializerSettings).Replace("\r\n", "\n");
-            
-             messageObject = new CommunicateElement(NetworkComms.NetworkIdentifier, json, 1234, c.Designation);
+            string json = JsonConvert.SerializeObject(c, typeof(BaseElement), _jsonSerializerSettings);
+
+            CommunicateElement messageObject = new CommunicateElement(NetworkComms.NetworkIdentifier, json, c.Designation);
             
             //Print out the IPs and ports we are now listening on
             Console.WriteLine();
             Console.WriteLine("[Object] Server messaging these TCP connections:");
 
-            foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
+            foreach (IPEndPoint localEndPoint in connectedClients)
             {
-                Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
+                Console.WriteLine($"{localEndPoint.Address}:{localEndPoint.Port}");
                 try
                 {
                     TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Element", messageObject);
@@ -211,7 +214,7 @@ namespace FormWithUnity
         /// <param name="strStart">first string</param>
         /// <param name="strEnd">second string</param>
         /// <returns></returns>
-        public static string GetBetween(string strSource, string strStart, string strEnd)
+        private static string GetBetween(string strSource, string strStart, string strEnd)
         {
             int Start, End;
             if (strSource.Contains(strStart) && strSource.Contains(strEnd))
@@ -246,22 +249,22 @@ namespace FormWithUnity
                 }
                 
                 // transform text into CommunicateUpdate element
-                CommunicateUpdate messageUpdate = new CommunicateUpdate(NetworkComms.NetworkIdentifier, content, 1234, ID);
+                CommunicateUpdate messageUpdate = new CommunicateUpdate(NetworkComms.NetworkIdentifier, content, ID);
 
 
                 //Print out the IPs and ports we are now listening on
                 Console.WriteLine();
                 Console.WriteLine("[Update] Server messaging these TCP connections:");
 
-                foreach (System.Net.IPEndPoint localEndPoint in connectedClients)
+                foreach (IPEndPoint localEndPoint in connectedClients)
                 {
-                    Console.WriteLine("{0}:{1}", localEndPoint.Address, localEndPoint.Port);
+                    Console.WriteLine($"{localEndPoint.Address}:{localEndPoint.Port}" );
                     try
                     {
                         TCPConnection.GetConnection(new ConnectionInfo(localEndPoint), customSendReceiveOptions).SendObject("Update", messageUpdate);
 
                     }
-                    catch (CommunicationException) { Console.WriteLine("CommunicationException"); }
+                    catch (CommunicationException _cex) { Console.WriteLine("CommunicationException" + _cex); }
                     catch (ConnectionShutdownException) { Console.WriteLine("ConnectionShutdownException"); }
                     catch (Exception) { Console.WriteLine("Autre exception"); }
                 }
@@ -279,11 +282,8 @@ namespace FormWithUnity
         /// <param name="e"></param>
         private void EnableServer_Toggle()
         {
-            //Enable or disable the local server mode depending on the checkbox IsChecked value
-            if (!serverEnabled)
-                ToggleServerMode(true);
-            else
-                ToggleServerMode(false);
+            //Enable or disable the local server mode depending on if the server is already enabled or not
+            ToggleServerMode(!serverEnabled);
             serverEnabled = !serverEnabled;
             
         }
@@ -322,8 +322,8 @@ namespace FormWithUnity
         /// <returns></returns>
         public int GetPosition() { return position; }
 
-
-        // what goes next is more for example purpose, the client doesn't care about that type of message
+        /*
+        // what goes next is more for example purpose, the client has no handler with that type of message
         /// <summary>
         /// makes u go right
         /// </summary>
@@ -408,6 +408,7 @@ namespace FormWithUnity
                 catch (Exception) { Console.WriteLine("Autre exception"); }
             }
         }
+        //*/
     }
 
 

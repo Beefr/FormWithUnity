@@ -33,16 +33,11 @@ namespace FormWithUnity
         [ProtoMember(2, DataFormat = DataFormat.FixedSize, IsRequired = true)]
         public string Message { get; private set; }
 
-        /// <summary>
-        /// the secret key to verify whether it is a real message or not
-        /// </summary>
-        [ProtoMember(3, DataFormat = DataFormat.FixedSize, IsRequired = true)]
-        public int SecretKey { get; private set; }
-
+       
         /// <summary>
         /// type of object
         /// </summary>
-        [ProtoMember(4, DataFormat = DataFormat.FixedSize, IsRequired = true)]
+        [ProtoMember(3, DataFormat = DataFormat.FixedSize, IsRequired = true)]
         public string Type { get; private set; }
 
 
@@ -59,11 +54,10 @@ namespace FormWithUnity
         /// <param name="sourceName">The source name</param>
         /// <param name="message">The message to be sent</param>
         /// <param name="messageIndex">The index of this message</param>
-        public CommunicateElement(ShortGuid sourceIdentifier, string message, int secretKey, string type)
+        public CommunicateElement(ShortGuid sourceIdentifier, string message, string type)
         {
             this._sourceIdentifier = sourceIdentifier;
             this.Message =  message;
-            this.SecretKey = secretKey;
             this.Type = type;
         }
 

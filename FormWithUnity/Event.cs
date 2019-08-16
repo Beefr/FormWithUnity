@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FormWithUnity
 {
@@ -11,22 +7,14 @@ namespace FormWithUnity
     /// </summary>
     public class Event: EventArgs
     {
-        private string message;
-
         public Event(string message)
         {
-            this.message = message;
+            this.Message = message;
         }
-        
+
         // This is a straightforward implementation for 
         // declaring a public field
-        public string Message
-        {
-            get
-            {
-                return message;
-            }
-        }
+        public string Message { get; }
 
     }
 

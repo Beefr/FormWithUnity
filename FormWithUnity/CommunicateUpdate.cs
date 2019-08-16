@@ -1,10 +1,5 @@
 ﻿using NetworkCommsDotNet.Tools;
 using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FormWithUnity
 {
@@ -33,17 +28,12 @@ namespace FormWithUnity
         [ProtoMember(2, DataFormat = DataFormat.FixedSize, IsRequired = true)]
         public string Message { get; private set; }
 
+        
+
         /// <summary>
         /// the secret key to verify whether it is a real message or not
         /// </summary>
         [ProtoMember(3, DataFormat = DataFormat.FixedSize, IsRequired = true)]
-        public int SecretKey { get; private set; }
-
-
-        /// <summary>
-        /// the secret key to verify whether it is a real message or not
-        /// </summary>
-        [ProtoMember(4, DataFormat = DataFormat.FixedSize, IsRequired = true)]
         public int ID { get; private set; }
 
 
@@ -61,11 +51,10 @@ namespace FormWithUnity
         /// <param name="sourceName">The source name</param>
         /// <param name="message">The message to be sent</param>
         /// <param name="messageIndex">The index of this message</param>
-        public CommunicateUpdate(ShortGuid sourceIdentifier, string message, int secretKey, int ID)
+        public CommunicateUpdate(ShortGuid sourceIdentifier, string message, int ID)
         {
             this._sourceIdentifier = sourceIdentifier;
             this.Message = message;
-            this.SecretKey = secretKey;
             this.ID = ID;
         }
 

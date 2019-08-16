@@ -1,52 +1,40 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
-using System.Drawing;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace FormWithUnity
 {
     public partial class Form1 : Form
     {
+        // the server
         private NCServer myNCServer;
+        
 
-        private bool firstTime = true;
+        // for testing purpose
         private int position = 0;
-        private int compteur = 0;
 
+        // to resize the unity process
         [DllImport("User32.dll")]
         static extern bool MoveWindow(IntPtr handle, int x, int y, int width, int height, bool redraw);
 
+        // to get the unity process
         internal delegate int WindowEnumProc(IntPtr hwnd, IntPtr lparam);
         [DllImport("user32.dll")]
         internal static extern bool EnumChildWindows(IntPtr hwnd, WindowEnumProc func, IntPtr lParam);
 
-        [DllImport("user32.dll")]
-        static extern int SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
-
+        // the unity process
         private Process process;
         private IntPtr unityHWND = IntPtr.Zero;
 
-        private const int WM_ACTIVATE = 0x0006;
-        private readonly IntPtr WA_ACTIVE = new IntPtr(1);
-        private readonly IntPtr WA_INACTIVE = new IntPtr(0);
-
-        public delegate void MyDelegate();
-        MyDelegate d;
-        private string ObjectContent;
+        // to update the richtextbox safely
+        private delegate void MyDelegate(string content);
 
         
         public Form1()
         {
             InitializeComponent();
-            d = new MyDelegate(UpdateRichTextBoxTS); // to update the richtextbox thread safe
 
             try
             {
@@ -59,8 +47,8 @@ namespace FormWithUnity
                 process.Start();
 
                 process.WaitForInputIdle();
-                // Doesn't work for some reason ?!
-                //unityHWND = process.MainWindowHandle;
+
+                // to be able to resize it
                 EnumChildWindows(panel1.Handle, WindowEnum, IntPtr.Zero);
                 
                 unityHWNDLabel.Text = "position = " + position;
@@ -69,65 +57,26 @@ namespace FormWithUnity
             {
                 MessageBox.Show(ex.Message + ".\nCheck if Container.exe is placed next to Child.exe.");
             }
+            
+            // starts the server
+            myNCServer = new NCServer();
+            // add an handler to update the richtextbox
+            //myNCServer.giveAccessToRichTextBox(richTextBox1); // can't do that because we can't let an other thread modify the richtextbox (i mean an other than the one that created it)
+            myNCServer.OnGetSelected += new NCServer.EventHandler(UpdateRichTextBox); // calls UpdateRichTextBox that invokes the delegate for UpdateRichTextBoxTS (Thread Safe)
 
-            if (firstTime)
-            {
-                // starts the server
-                myNCServer = new NCServer();
-
-                // warm things up for the richtextbox
-                //myNCServer.giveAccessToRichTextBox(richTextBox1); // can't do that because we can't let an other thread modify the richtextbox (i mean an other than the one that created it)
-                myNCServer.OnClickMade += new NCServer.EventHandler(UpdateRichTextBox);
-                firstTime = false;
-            }
-
-
-            // add handlers to make it work properly
-            this.KeyPreview = true;
-            this.KeyPress += new KeyPressEventHandler(keyPress); 
-            this.panel1.Focus();
 
             richTextBox1.MouseLeave += new EventHandler(richTextBox1_LostFocus);
             richTextBox1.MouseClick += new MouseEventHandler(richTextBox1_GotFocus);
         }
 
+
+    
         /// <summary>
-        /// for example purpose, myCamera.cs in the client's code does the trick
+        /// modifies the text's characteristics
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        void keyPress(object sender, KeyPressEventArgs e)
+        void UpdateRichTextBoxTS(string content)
         {
-            if (!firstTime)
-            {
-
-                switch (e.KeyChar)
-                {
-                    case 'z':
-                        myNCServer.Top(1);
-                        break;
-                    case 'q':
-                        myNCServer.Left(1);
-                        break;
-                    case 's':
-                        myNCServer.Bot(1);
-                        break;
-                    case 'd':
-                        myNCServer.Right(1);
-                        break;
-                    default:
-                        break;
-
-                }
-            }
-        }
-
-        /// <summary>
-        /// modifies the text's caracteristics
-        /// </summary>
-        public void UpdateRichTextBoxTS()
-        {
-            richTextBox1.Text = ObjectContent;
+            richTextBox1.Text = content;
         }
 
         /// <summary>
@@ -140,50 +89,25 @@ namespace FormWithUnity
             // Appels inter-thread-safe https://docs.microsoft.com/fr-fr/dotnet/framework/winforms/controls/how-to-make-thread-safe-calls-to-windows-forms-controls
             // https://www.infoworld.com/article/2996770/how-to-work-with-delegates-in-c.html
             
-            ObjectContent = e.Message;
-            this.Invoke(this.d);
+            this.BeginInvoke(new MyDelegate(UpdateRichTextBoxTS), e.Message); // source: https://docs.microsoft.com/fr-fr/dotnet/api/system.windows.forms.control.begininvoke?view=netframework-4.8
+
+            // as the text changes, it fires an event of textchanged, which sends an update to the clients
 
             // access problem https://stackoverflow.com/questions/13728872/how-to-access-textbox-from-within-class-file
         }
 
-        /// <summary>
-        /// when we want the focus to be on the unity window
-        /// </summary>
-        private void ActivateUnityWindow()
-        {
-            SendMessage(unityHWND, WM_ACTIVATE, WA_ACTIVE, IntPtr.Zero);
-        }
+        
+        
 
         /// <summary>
-        /// when we don't want the focus on the unity window
-        /// </summary>
-        private void DeactivateUnityWindow()
-        {
-            SendMessage(unityHWND, WM_ACTIVATE, WA_INACTIVE, IntPtr.Zero);
-        }
-
-        /// <summary>
-        /// get the unity window and get the focus on it
-        /// </summary>
-        /// <param name="hwnd"></param>
-        /// <param name="lparam"></param>
-        /// <returns></returns>
-        private int WindowEnum(IntPtr hwnd, IntPtr lparam)
-        {
-            unityHWND = hwnd;
-            ActivateUnityWindow();
-            return 0;
-        }
-
-        /// <summary>
-        /// to resize a panel
+        /// to resize the unity process
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void panel1_Resize(object sender, EventArgs e)
         {
             MoveWindow(unityHWND, 0, 0, panel1.Width, panel1.Height, true);
-            ActivateUnityWindow();
+            //ActivateUnityWindow();
 
         }
 
@@ -208,25 +132,21 @@ namespace FormWithUnity
             }
         }
 
-        /// <summary>
-        /// get the focus on unity
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void Form1_Activated(object sender, EventArgs e)
-        {
-            ActivateUnityWindow();
-        }
 
         /// <summary>
-        /// remove the focus on unity
+        /// get the unity process 
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void Form1_Deactivate(object sender, EventArgs e)
+        /// <param name="hwnd"></param>
+        /// <param name="lparam"></param>
+        /// <returns></returns>
+        private int WindowEnum(IntPtr hwnd, IntPtr lparam)
         {
-            DeactivateUnityWindow();
+            unityHWND = hwnd;
+            //ActivateUnityWindow();
+            return 0;
         }
+
+
 
         /// <summary>
         /// press the button and u'll send messages and objects or whatever you want
@@ -239,16 +159,10 @@ namespace FormWithUnity
             myNCServer.SendMyObject();
 
             position = myNCServer.GetPosition();
-            compteur++;
-            unityHWNDLabel.Text = "position = " + position + " (Updated " + compteur + " times)";
-            
-            SendMessage(unityHWND, WM_ACTIVATE, WA_ACTIVE, IntPtr.Zero);
-        }
+            unityHWNDLabel.Text = "position = " + position;
 
-        [DllImport("User32")]
-        private static extern int ShowWindow(System.IntPtr hwnd, int nCmdShow);
-        [DllImport("User32")]
-        private static extern int SwitchToThisWindow(System.IntPtr hwnd, bool fUnknown);
+            //ActivateUnityWindow();
+        }
 
         /// <summary>
         /// if the text of the richtextbox changed, we tell the client
@@ -274,7 +188,7 @@ namespace FormWithUnity
             HideCaret(richTextBox1.Handle);
             richTextBox1.ReadOnly = true;
 
-            SendMessage(unityHWND, WM_ACTIVATE, WA_ACTIVE, IntPtr.Zero);
+            //ActivateUnityWindow();
 
         }
         
@@ -291,7 +205,66 @@ namespace FormWithUnity
         [DllImport("user32.dll", EntryPoint = "HideCaret")]
         private static extern int HideCaret(IntPtr hwnd);
 
+    
+
         /*
+       
+
+        [DllImport("user32.dll")]
+        static extern int SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        //private const int WM_ACTIVATE = 0x0006;
+        //private readonly IntPtr WA_ACTIVE = new IntPtr(1);
+        //private readonly IntPtr WA_INACTIVE = new IntPtr(0);
+
+        
+        
+        [DllImport("User32")]
+        private static extern int ShowWindow(System.IntPtr hwnd, int nCmdShow);
+        [DllImport("User32")]
+        private static extern int SwitchToThisWindow(System.IntPtr hwnd, bool fUnknown);
+        
+
+
+        /// <summary>
+        /// when we want the focus to be on the unity window
+        /// </summary>
+        private void ActivateUnityWindow()
+        {
+            SendMessage(unityHWND, WM_ACTIVATE, WA_ACTIVE, IntPtr.Zero);
+        }
+
+        /// <summary>
+        /// get the focus on unity
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Form1_Activated(object sender, EventArgs e) // see Form1.Designer this.Activated
+        {
+            ActivateUnityWindow();
+        }
+
+        
+        /// <summary>
+        /// remove the focus on unity
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Form1_Deactivate(object sender, EventArgs e)
+        {
+            DeactivateUnityWindow();
+        }
+
+        
+
+        /// <summary>
+        /// when we don't want the focus on the unity window
+        /// </summary>
+        private void DeactivateUnityWindow()
+        {
+            SendMessage(unityHWND, WM_ACTIVATE, WA_INACTIVE, IntPtr.Zero);
+        }
+      
         protected override void WndProc(ref Message m)
         {
             base.WndProc(ref m);
@@ -315,6 +288,6 @@ namespace FormWithUnity
         {
            
         }//*/
-        
+
     }
 }
