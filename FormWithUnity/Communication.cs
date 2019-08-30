@@ -13,10 +13,10 @@ namespace FormWithUnity
     class Communication //: IExplicitlySerialize
     {
         /// <summary>
-        /// The source identifier of this ChatMessage.
+        /// The source identifier of this Communication.
         /// We use this variable as the constructor for the ShortGuid.
         /// The [ProtoMember(1)] attribute informs the serialiser that when
-        /// an object of type ChatMessage is serialised we want to include this variable
+        /// an object of type Communication is serialised we want to include this variable
         /// </summary>
         [ProtoMember(1)]
         string _sourceIdentifier;
@@ -39,12 +39,10 @@ namespace FormWithUnity
         protected Communication() { }
 
         /// <summary>
-        /// Create a new ChatMessage
+        /// Create a new Communication
         /// </summary>
         /// <param name="sourceIdentifier">The source identifier</param>
-        /// <param name="sourceName">The source name</param>
         /// <param name="message">The message to be sent</param>
-        /// <param name="messageIndex">The index of this message</param>
         public Communication(ShortGuid sourceIdentifier, int message)
         {
             this._sourceIdentifier = sourceIdentifier;

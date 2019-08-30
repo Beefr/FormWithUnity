@@ -37,7 +37,7 @@ namespace FormWithUnity
         {
             // setup the communication 
             customSendReceiveOptions = new SendReceiveOptions<ProtobufSerializer>();
-            ConnectionInfo serverConnectionInfo = new ConnectionInfo(new IPEndPoint(IPAddress.Any, PortServer));
+            ConnectionInfo serverConnectionInfo = new ConnectionInfo(new IPEndPoint(IPAddress.Any, PortServer)); // TODO: check if this line has any utility
 
             //Start listening for incoming TCP connections
             if (!serverEnabled)
@@ -75,7 +75,6 @@ namespace FormWithUnity
 
         }
         
-
         /// <summary>
         /// client connected
         /// </summary>
@@ -112,11 +111,7 @@ namespace FormWithUnity
                 connectedClients.Remove((IPEndPoint)connection.ConnectionInfo.RemoteEndPoint);
             }
         }
-
-
-
-
-
+        
         /// <summary>
         /// Performs whatever functions we might so desire when we receive an incoming Communication
         /// </summary>
